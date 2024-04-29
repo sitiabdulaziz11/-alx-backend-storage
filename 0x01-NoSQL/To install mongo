@@ -1,0 +1,22 @@
+
+To install the MongoDB client on Ubuntu 18.04, you can follow these steps:
+
+sudo apt update
+sudo apt install mongodb-clients
+mongo --version
+
+if not work, remove it and reinstall
+
+sudo apt purge mongodb-org*
+sudo rm -r /var/log/mongodb
+sudo rm -r /var/lib/mongodb
+
+then 
+wget -qO - https://www.mongodb.org/static/pgp/server-4.2.asc | sudo apt-key add -
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.2.list
+sudo apt update
+
+sudo apt install -y mongodb-org
+mongo --version
+sudo service mongod start
+sudo service mongod status
