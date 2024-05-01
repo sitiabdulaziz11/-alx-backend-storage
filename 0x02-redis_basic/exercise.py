@@ -21,5 +21,5 @@ class Cache:
 
     def store(self, data: 'Union[str, bytes, int, float]') -> str:
         Randk = str(uuid.uuid4())
-        self._redis.set(Randk, data)
+        self._redis.set({Randk: data})
         return Randk
