@@ -20,6 +20,6 @@ class Cache:
         self._redis.flushdb()
 
     def store(self, data: 'Union[str, bytes, int, float]') -> str:
-        Randk = str(uuid.uuid4())
-        self._redis.mset({Randk: data})
-        return Randk
+        key = str(uuid.uuid4())
+        self._redis.mset({key: data})
+        return key
