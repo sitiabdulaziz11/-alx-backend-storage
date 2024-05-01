@@ -2,10 +2,12 @@
 """
 Writing strings to Redis
 """
-from typing import Callable, Union
-import functools
+import sys
+from functools import wraps
+from typing import Union, Optional, Callable
+from uuid import uuid4
+
 import redis
-import uuid
 
 
 def count_calls(method: Callable) -> Callable:
@@ -15,28 +17,31 @@ def count_calls(method: Callable) -> Callable:
     """
     key = method.__qualname__
 
-    @functools.wraps(method)
+    @wraps(method)
     def wrapper(self, *args, **kwargs):
         """wrapper method."""
         self._redis.incr(key)
         return method(self, *args, **kwargs)
+
     return wrapper
 
 
-def call_history(method):
+def call_history(method: Callable) -> Callable:
     """
     Function add its input parameters to one list
     in redis, and store its output into another list.
     """
-    input_key = method.__qualname__ + ":inputs"
-    output_key = method.__qualname__ + ":outputs"
+    key = method.__qualname__
+    ip = "".join([key, ":inputs"])
+    op = "".join([key, ":outputs"])
 
-    @functools.wraps(method)
+    @wraps(method)
     def wrapper(self, *args, **kwargs):
         """Wrapper method"""
-        self._redis.rpush(input_key, str(args))
-        output = method(self, *args, **kwargs)
-        self._redis.rpush(output_key, str(output))
+        self._redis.rpush(ip, str(args))
+        res = method(self, *args, **kwargs)
+        self._redis.rpush(op, str(res))
+        return res
 
     return wrapper
 
@@ -46,7 +51,7 @@ class Cache:
     Writing strings to Redis
     """
 
-    def __init__(self) -> None:
+    def __init__(self):
         """
         Construct redis database
         """
@@ -54,41 +59,38 @@ class Cache:
         self._redis.flushdb()
 
     @count_calls
-    def store(self, data: any) -> str:
+    @call_history
+    def store(self, data: Union[str, bytes, int, float]) -> str:
         """
         Method used to store data in
         Redis with a randomly generated key
         """
-        Randk = str(uuid.uuid4())
-        self._redis.set(Randk, data)
-        return Randk
+        key = str(uuid4())
+        self._redis.mset({key: data})
+        return key
 
-    def get(self, key: str, fn: Callable = None) -> Union[
-                                                        str, bytes, int,
-                                                        float]:
+    def get(self, key: str, fn: Optional[Callable] = None) \
+            -> Union[str, bytes, int, float]:
         """
         get method retrieves data from Redis using the specified key.
         It accepts an optional conversion function (fn) to convert the
         retrieved data back to the desired format.
         """
-
+        if fn:
+            return fn(self._redis.get(key))
         data = self._redis.get(key)
-        if data is None:
-            return None
-        if fn is not None:
-            return fn(data)
         return data
 
-    def get_str(self, key: str) -> str:
-        """
-        Method which will automatically parameterize
-        to string.
-        """
-        return self.get(key, fn=lambda d: d.decode("utf-8"))
-
-    def get_int(self, key: str) -> int:
+    def get_int(self: bytes) -> int:
         """
         Method which will automatically parameterize
         to integer.
         """
-        return self.get(key, fn=int)
+        return int.from_bytes(self, sys.byteorder)
+
+    def get_str(self: bytes) -> str:
+        """
+        Method which will automatically parameterize
+        to string.
+        """
+        return self.decode("utf-8")
